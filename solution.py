@@ -523,7 +523,7 @@ class BackpropTrainer(Framework):
                 current_logits, log_prior, log_variational_posterior = self.network(batch_x)
                
                 # compute loss
-                loss = log_variational_posterior - log_prior * F.nll_loss(F.log_softmax(current_logits, dim=1), batch_y, reduction='sum')
+                loss = (log_variational_posterior - log_prior)/self.batch_size + F.nll_loss(F.log_softmax(current_logits, dim=1), batch_y, reduction='mean')
                 
                 # Backpropagate to get the gradients
                 loss.backward()
@@ -643,7 +643,7 @@ class BayesianLayer(nn.Module):
         log_variational_posterior = self.weights_var_posterior.log_likelihood(weights)
        
         
-        # check bif there is bias and if true sample and add the relative components to log prior ad posteriors
+        # check if there is bias and if true sample and add the relative components to log prior ad posteriors
         if self.use_bias:
         	bias = self.bias_var_posterior.sample()
         	log_prior +=  self.prior.log_likelihood(bias)
@@ -748,13 +748,13 @@ class UnivariateGaussian(ParameterDistribution):
     def log_likelihood(self, values: torch.Tensor) -> torch.Tensor:
         # TODO: Backprop_4. You need to complete the log likelihood function 
         # for the Univariate Gaussian distribution. 
-        return - 0.5 * torch.sum( (values-self.mu)**2/(self.sigma**2) + torch.log(self.sigma**2))
+        return - torch.sum( (values-self.mu)**2/(2*self.sigma**2) + torch.log(self.sigma))
        
     def sample(self) -> torch.Tensor:
         # TODO: Backprop_4. You need to complete the sample function 
         # for the Univariate Gaussian distribution. 
         #raise NotImplementedError()
-        return torch.normal(self.mu, self.sigma)
+        return self.mu + self.sigma * torch.randn_like(self.sigma)
 
 
 class MultivariateDiagonalGaussian(ParameterDistribution):
@@ -775,15 +775,13 @@ class MultivariateDiagonalGaussian(ParameterDistribution):
     def log_likelihood(self, values: torch.Tensor) -> torch.Tensor:
         # TODO: Backprop_5. You need to complete the log likelihood function 
         # for the Multivariate DiagonalGaussian Gaussian distribution. 
-        sigma = F.softplus(self.rho)
-        return - 0.5 * torch.sum( (values-self.mu)**2/(sigma**2) + torch.log(sigma**2))
+        return - torch.sum( (values-self.mu)**2/(2*F.softplus(self.rho)**2) + torch.log(F.softplus(self.rho)) )
 
     def sample(self) -> torch.Tensor:
         # TODO: Backprop_5. You need to complete the sample function 
         # for the Multivariate DiagonalGaussian Gaussian distribution. 
         #raise NotImplementedError()
-        sigma = F.softplus(self.rho)
-        return torch.normal(self.mu, sigma)
+        return self.mu + F.softplus(self.rho) * torch.randn_like(self.rho)
 
 
 
