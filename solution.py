@@ -47,6 +47,7 @@ def run_solution(dataset_train: torch.utils.data.Dataset, data_dir: str = os.cur
     if not combined_model:
         
         # TODO General_1: Choose your approach here
+        # TODO(schowdhary): Remember to change this approach to your method before git merge
         approach = Approach.Backprop
 
         if approach == Approach.Dummy_Trainer:
