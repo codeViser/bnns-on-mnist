@@ -495,9 +495,9 @@ class BackpropTrainer(Framework):
 
         # Hyperparameters and general parameters
         # TODO: Backprop_7 Tune parameters and add more if necessary
-        self.hidden_features=(100,100)
+        self.hidden_features=(100, 100)
         self.batch_size = 128
-        self.num_epochs = 100
+        self.num_epochs = 200
         learning_rate = 1e-3
 
         self.network = BayesNet(in_features=28*28, hidden_features=self.hidden_features, out_features=10)
@@ -523,7 +523,10 @@ class BackpropTrainer(Framework):
                 current_logits, log_prior, log_variational_posterior = self.network(batch_x)
                
                 # compute loss
-                loss = (log_variational_posterior - log_prior)/self.batch_size + F.nll_loss(F.log_softmax(current_logits, dim=1), batch_y, reduction='mean')
+                kl_loss = (log_variational_posterior - log_prior)/num_batches
+                nll_loss = F.nll_loss(F.log_softmax(current_logits, dim=1), batch_y, reduction='sum')
+                #print(kl_loss, nll_loss)
+                loss = kl_loss + nll_loss
                 
                 # Backpropagate to get the gradients
                 loss.backward()
@@ -584,7 +587,7 @@ class BayesianLayer(nn.Module):
         #  Example: self.prior = MyPrior(torch.tensor(0.0), torch.tensor(1.0))
         self.prior = UnivariateGaussian(
         		torch.tensor(0.0),
-        		torch.tensor(1.0)
+        		torch.tensor(0.1)
         	)
        
         assert isinstance(self.prior, ParameterDistribution)
@@ -603,7 +606,7 @@ class BayesianLayer(nn.Module):
         #  )
         self.weights_var_posterior = MultivariateDiagonalGaussian(
         				torch.nn.Parameter(torch.zeros((out_features, in_features))),
-        				torch.nn.Parameter(torch.ones((out_features, in_features)))
+        				torch.nn.Parameter(0.1*torch.ones((out_features, in_features)))
         			)
 
         assert isinstance(self.weights_var_posterior, ParameterDistribution)
@@ -614,7 +617,7 @@ class BayesianLayer(nn.Module):
             #  Make sure to follow the same rules as for the weight variational posterior.
             self.bias_var_posterior = MultivariateDiagonalGaussian(
         		torch.nn.Parameter(torch.zeros(out_features)),
-        		torch.nn.Parameter(torch.ones(out_features))
+        		torch.nn.Parameter(0.1*torch.ones(out_features))
         	)
             assert isinstance(self.bias_var_posterior, ParameterDistribution)
             assert any(True for _ in self.bias_var_posterior.parameters()), 'Bias posterior must have parameters'
