@@ -47,6 +47,7 @@ def run_solution(dataset_train: torch.utils.data.Dataset, data_dir: str = os.cur
     if not combined_model:
         
         # TODO General_1: Choose your approach here
+        # TODO(schowdhary): Remember to change this approach to your method before git merge
         approach = Approach.Backprop
 
         if approach == Approach.Dummy_Trainer:
@@ -310,12 +311,18 @@ class DropoutTrainer(Framework):
         self.batch_size = 128
         self.learning_rate = 1e-3
         self.num_epochs = 100
-        # torch.manual_seed(0) # set seed for reproducibility
+        self.dropout_p = 0.5 # as suggested by authors
+        self.dropout_sample_iters = 1000 # as suggested by the paper
+        torch.manual_seed(0) # set seed for reproducibility
         
         # TODO: MC_Dropout_1. Initialize the MC_Dropout network and optimizer here
         # You can check the Dummy Trainer above for intuition about what to do
-        self.network = None
-        self.optimizer = None
+        self.network = MNISTNet(in_features=28*28,out_features=10, dropout_p=self.dropout_p, dropout_at_eval=True)
+        self.optimizer = torch.optim.Adam(self.network.parameters(), lr=self.learning_rate)
+        # extra init, not specified
+        self.train_loader = torch.utils.data.DataLoader(
+            dataset_train, batch_size=self.batch_size, shuffle=True, drop_last=True
+            )
         
 
     def train(self):
@@ -328,7 +335,9 @@ class DropoutTrainer(Framework):
                 self.network.zero_grad()
                 # TODO: MC_Dropout_2. Implement MCDropout training here
                 # You need to calculate the loss based on the literature
-                loss = None
+                current_logits = self.network(batch_x)
+                # TODO(schowdhary): Can add regularization of weight parameters into the loss function as per MC_Dropout Lit
+                loss = F.nll_loss(F.log_softmax(current_logits, dim=1), batch_y, reduction='mean') 
 
                 # Backpropagate to get the gradients
                 loss.backward()
@@ -348,8 +357,16 @@ class DropoutTrainer(Framework):
         # TODO: MC_Dropout_3. Implement your MC_dropout prediction here
         # You need to sample from your trained model here multiple times
         # in order to implement Monte Carlo integration
-        estimated_probability = None
         
+        forward_passes_aggr = torch.zeros(x.shape[0], 10)
+        # forward_passes = torch.FloatTensor([F.softmax(self.network(x), dim=1) for i in range(self.dropout_sample_iters)])
+        for i in range(self.dropout_sample_iters):
+            forward_passes_aggr += F.softmax(self.network(x), dim=1)
+        
+        forward_passes_aggr /= self.dropout_sample_iters
+
+        estimated_probability = forward_passes_aggr
+
         assert estimated_probability.shape == (x.shape[0], 10)  
         return estimated_probability
 
@@ -991,11 +1008,11 @@ def evaluate(model:Framework, eval_loader: torch.utils.data.DataLoader, data_dir
 
 
 def main():
-    raise RuntimeError(
-        'This main method is for illustrative purposes only and will NEVER be called by the checker!\n'
-        'The checker always calls run_solution directly.\n'
-        'Please implement your solution exclusively in the methods and classes mentioned in the task description.'
-    )
+    # raise RuntimeError(
+    #     'This main method is for illustrative purposes only and will NEVER be called by the checker!\n'
+    #     'The checker always calls run_solution directly.\n'
+    #     'Please implement your solution exclusively in the methods and classes mentioned in the task description.'
+    # )
 
     # Load training data
     data_dir = os.curdir
